@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกเวลาทำงานรีสอร์ท</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Prompt', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 1.5rem;
+            background-color: #fff;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 9999px;
+            font-weight: 600;
+            color: white;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .btn-green {
+            background-color: #10b981;
+        }
+        .btn-green:hover {
+            background-color: #059669;
+        }
+        .btn-red {
+            background-color: #ef4444;
+        }
+        .btn-red:hover {
+            background-color: #dc2626;
+        }
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+<div class="container text-center">
+    <h1 class="text-3xl font-bold mb-4">ระบบบันทึกเวลาทำงาน</h1>
+    <p class="mb-6 text-gray-600">Perennial & SEA CALM</p>
+    
+    <div id="login-section" class="mb-6">
+        <label for="employee-select" class="block text-left text-gray-700 font-medium mb-2">เลือกชื่อพนักงาน:</label>
+        <div class="flex items-center space-x-2">
+            <select id="employee-select" class="flex-grow px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <!-- Employee names will be added here by JavaScript -->
+            </select>
+        </div>
+        <div id="admin-password-section" class="mt-4 hidden">
+            <label for="admin-password" class="block text-left text-gray-700 font-medium mb-2">รหัสผ่าน Admin:</label>
+            <input type="password" id="admin-password" class="w-full px-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="กรอกรหัสผ่าน">
+        </div>
+        <button id="confirm-name-btn" class="btn btn-green whitespace-nowrap mt-4 w-full">Verify</button>
+        <div id="login-error-message" class="mt-4 text-red-500 hidden"></div>
+    </div>
+
+    <div id="main-app-section" class="hidden">
+        <div id="check-status" class="mb-6 p-4 rounded-lg bg-blue-50 text-blue-700 text-lg font-medium hidden">
+            สถานะ: <span id="status-text">ยังไม่ได้เช็คอิน</span>
+        </div>
+    
+        <button id="check-btn" class="btn btn-green w-full">
+            <span id="btn-text">เช็คอิน</span>
+        </button>
+        <div id="error-message" class="mt-4 text-red-500 hidden"></div>
+        <div id="location-info" class="mt-4 text-sm text-gray-500 hidden">
+            <p>กำลังดึงข้อมูลตำแหน่ง...</p>
+        </div>
+    
+        <div class="mt-8">
+            <h2 class="text-2xl font-semibold mb-4">รายการบันทึกเวลา</h2>
+            <div class="overflow-x-auto rounded-lg shadow-sm">
+                <table id="timesheet-table" class="min-w-full bg-white border-collapse">
+                    <thead class="bg-gray-200 text-gray-700">
+                        <tr>
+                            <th class="py-3 px-4 text-left font-semibold">เวลาเข้า</th>
+                            <th class="py-3 px-4 text-left font-semibold">เวลาออก</th>
+                            <th class="py-3 px-4 text-left font-semibold">ชั่วโมงทำงาน</th>
+                            <th class="py-3 px-4 text-left font-semibold">ตำแหน่ง</th>
+                        </tr>
+                    </thead>
+                    <tbody id="timesheet-table-body">
+                        <!-- Timesheet data will be rendered here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    
+        <button id="download-btn" class="mt-6 btn bg-gray-500 hover:bg-gray-600 w-full hidden">
+            <span id="download-btn-text">ดาวน์โหลดข้อมูล</span>
+        </button>
+    </div>
+
+    <div id="admin-section" class="hidden">
+        <div class="mt-8">
+            <h2 class="text-2xl font-semibold mb-4">จัดการรายการบันทึกเวลาทั้งหมด</h2>
+            <div class="overflow-x-auto rounded-lg shadow-sm">
+                <table id="admin-table" class="min-w-full bg-white border-collapse">
+                    <thead class="bg-gray-200 text-gray-700">
+                        <tr>
+                            <th class="py-3 px-4 text-left font-semibold">พนักงาน</th>
+                            <th class="py-3 px-4 text-left font-semibold">เวลาเข้า</th>
+                            <th class="py-3 px-4 text-left font-semibold">เวลาออก</th>
+                            <th class="py-3 px-4 text-left font-semibold">จัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-table-body">
+                        <!-- Admin data will be rendered here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="edit-modal" class="modal hidden">
+    <div class="modal-content">
+        <h3 class="text-xl font-bold mb-4">แก้ไขรายการ</h3>
+        <input type="hidden" id="edit-doc-id">
+        <div class="mb-4">
+            <label class="block text-gray-700 mb-2">เวลาเข้า:</label>
+            <input type="datetime-local" id="edit-checkin" class="w-full px-3 py-2 border rounded-md">
+        </div>
+        <div class="mb-4">
+            <label class="block text-gray-700 mb-2">เวลาออก:</label>
+            <input type="datetime-local" id="edit-checkout" class="w-full px-3 py-2 border rounded-md">
+        </div>
+        <div class="flex justify-end space-x-2">
+            <button id="save-edit-btn" class="btn btn-green">บันทึก</button>
+            <button id="cancel-edit-btn" class="btn bg-gray-500 hover:bg-gray-600">ยกเลิก</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, getDoc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    // Set Firestore log level for debugging
+    setLogLevel('debug');
+
+    // Get Firebase configuration and app ID from global variables
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    // --- Employee Data (can be customized) ---
+    // Added "Admin" to enable admin mode
+    const employees = [
+        "Admin", "Kittipoom" , "Rut", " Bao", "Boonnum", "Tine", "YUI", "Kai 2", "Lee", "Noi", "Vut", "Yin", "Kra", "Tai", "Eiei", "Ann", "Dream", "Rain", "Mali", "Zuzu", "R tong"
+    ];
+    // --- Admin Password ---
+    const ADMIN_PASSWORD = '1234'; 
+
+    // --- Firebase and UI Elements ---
+    let app, db, auth;
+    let userId = null;
+    let currentLocation = null;
+    let selectedEmployee = null;
+
+    const employeeSelect = document.getElementById('employee-select');
+    const confirmNameBtn = document.getElementById('confirm-name-btn');
+    const loginSection = document.getElementById('login-section');
+    const mainAppSection = document.getElementById('main-app-section');
+    const adminSection = document.getElementById('admin-section');
+    const checkBtn = document.getElementById('check-btn');
+    const btnText = document.getElementById('btn-text');
+    const statusText = document.getElementById('status-text');
+    const checkStatusDiv = document.getElementById('check-status');
+    const timesheetTableBody = document.getElementById('timesheet-table-body');
+    const adminTableBody = document.getElementById('admin-table-body');
+    const errorDiv = document.getElementById('error-message');
+    const loginErrorDiv = document.getElementById('login-error-message');
+    const locationInfoDiv = document.getElementById('location-info');
+    const downloadBtn = document.getElementById('download-btn');
+    const editModal = document.getElementById('edit-modal');
+    const editDocIdInput = document.getElementById('edit-doc-id');
+    const editCheckinInput = document.getElementById('edit-checkin');
+    const editCheckoutInput = document.getElementById('edit-checkout');
+    const saveEditBtn = document.getElementById('save-edit-btn');
+    const cancelEditBtn = document.getElementById('cancel-edit-btn');
+    const adminPasswordSection = document.getElementById('admin-password-section');
+    const adminPasswordInput = document.getElementById('admin-password');
+
+    // Populate the employee dropdown
+    employees.forEach(employee => {
+        const option = document.createElement('option');
+        option.value = employee;
+        option.textContent = employee;
+        employeeSelect.appendChild(option);
+    });
+
+    // --- Main Functions ---
+
+    // Function to get current geolocation
+    const getCurrentLocation = () => {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) {
+                reject(new Error("ไม่รองรับการดึงข้อมูลตำแหน่งบนเบราว์เซอร์นี้"));
+            } else {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const { latitude, longitude } = position.coords;
+                        locationInfoDiv.classList.remove('hidden');
+                        locationInfoDiv.innerHTML = `<p>ตำแหน่งที่ตั้ง: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}</p>`;
+                        resolve({ latitude, longitude });
+                    },
+                    (error) => {
+                        // The error object from the browser can sometimes be an empty object.
+                        // We ensure we log a meaningful message.
+                        const errorMessage = error.message || "ไม่สามารถดึงข้อมูลตำแหน่งที่ตั้งได้ กรุณาตรวจสอบว่าเปิดการใช้งาน Location services และให้สิทธิ์การเข้าถึงแล้ว";
+                        console.error("Geolocation error:", errorMessage);
+                        reject(new Error(errorMessage));
+                    },
+                    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                );
+            }
+        });
+    };
+
+    // Function to initialize Firebase and authentication
+    const initializeFirebase = async () => {
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    console.log('User authenticated:', userId);
+                    // Try to get location only after auth is ready
+                    try {
+                        currentLocation = await getCurrentLocation();
+                    } catch (e) {
+                        showError(e.message);
+                    }
+                } else {
+                    console.log('User signed out or not authenticated. Signing in...');
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                }
+            });
+        } catch (e) {
+            console.error("Error during Firebase initialization:", e);
+            showError("เกิดข้อผิดพลาดในการเชื่อมต่อ Firebase กรุณาลองใหม่อีกครั้ง");
+        }
+    };
+
+    // Function to attach Firestore listener
+    let unsubscribe = null;
+    const attachTimesheetListener = (employeeName) => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+        if (!db) {
+            return;
+        }
+
+        const timesheetsCollection = collection(db, `artifacts/${appId}/public/data/timesheets`);
+        let q;
+        if (employeeName === 'Admin') {
+            q = query(timesheetsCollection);
+        } else {
+            q = query(timesheetsCollection, where("employeeName", "==", employeeName));
+        }
+
+        unsubscribe = onSnapshot(q, (snapshot) => {
+            const timesheetData = [];
+            snapshot.forEach(doc => {
+                timesheetData.push({ id: doc.id, ...doc.data() });
+            });
+
+            if (employeeName === 'Admin') {
+                renderAdminTimesheets(timesheetData);
+            } else {
+                renderUserTimesheets(timesheetData);
+                updateCheckInStatus(timesheetData);
+            }
+            
+            if (timesheetData.length > 0 && employeeName !== 'Admin') {
+                // Only show download button for the individual user's data
+                downloadBtn.classList.remove('hidden');
+            } else {
+                downloadBtn.classList.add('hidden');
+            }
+        }, (error) => {
+            console.error("Error listening to timesheets:", error);
+            showError("เกิดข้อผิดพลาดในการดึงข้อมูลบันทึกเวลา");
+        });
+    };
+
+    // Function to render the timesheet table for a single user
+    const renderUserTimesheets = (data) => {
+        // Sort data by checkInTime descending (newest first)
+        data.sort((a, b) => b.checkInTime.toDate() - a.checkInTime.toDate());
+
+        timesheetTableBody.innerHTML = '';
+        if (data.length === 0) {
+            timesheetTableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">ยังไม่มีการบันทึกเวลา</td></tr>';
+            return;
+        }
+
+        data.forEach(entry => {
+            const row = document.createElement('tr');
+            row.className = 'border-b last:border-b-0 hover:bg-gray-50';
+
+            const checkInDate = entry.checkInTime.toDate();
+            const checkOutDate = entry.checkOutTime ? entry.checkOutTime.toDate() : null;
+
+            const checkInFormatted = checkInDate.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+            const checkOutFormatted = checkOutDate ? checkOutDate.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : 'ยังไม่เช็คเอาท์';
+
+            let workHours = 'N/A';
+            if (checkOutDate) {
+                const diffMs = checkOutDate - checkInDate;
+                const diffHours = diffMs / (1000 * 60 * 60);
+                workHours = `${diffHours.toFixed(2)} ชม.`;
+            }
+
+            // Display location data from checkInLocation if available
+            const locationText = entry.checkInLocation ? `${entry.checkInLocation.latitude.toFixed(4)}, ${entry.checkInLocation.longitude.toFixed(4)}` : 'ไม่มีข้อมูลตำแหน่ง';
+
+            row.innerHTML = `
+                <td class="py-3 px-4 text-sm">${checkInFormatted}</td>
+                <td class="py-3 px-4 text-sm">${checkOutFormatted}</td>
+                <td class="py-3 px-4 text-sm">${workHours}</td>
+                <td class="py-3 px-4 text-sm">${locationText}</td>
+            `;
+            timesheetTableBody.appendChild(row);
+        });
+    };
+
+    // Function to render the timesheet table for admin
+    const renderAdminTimesheets = (data) => {
+        // Sort data by checkInTime descending (newest first)
+        data.sort((a, b) => b.checkInTime.toDate() - a.checkInTime.toDate());
+
+        adminTableBody.innerHTML = '';
+        if (data.length === 0) {
+            adminTableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">ยังไม่มีการบันทึกเวลา</td></tr>';
+            return;
+        }
+
+        data.forEach(entry => {
+            const row = document.createElement('tr');
+            row.className = 'border-b last:border-b-0 hover:bg-gray-50';
+
+            const checkInDate = entry.checkInTime.toDate();
+            const checkOutDate = entry.checkOutTime ? entry.checkOutTime.toDate() : null;
+
+            const checkInFormatted = checkInDate.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
+            const checkOutFormatted = checkOutDate ? checkOutDate.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : 'ยังไม่เช็คเอาท์';
+
+            row.innerHTML = `
+                <td class="py-3 px-4 text-sm">${entry.employeeName}</td>
+                <td class="py-3 px-4 text-sm">${checkInFormatted}</td>
+                <td class="py-3 px-4 text-sm">${checkOutFormatted}</td>
+                <td class="py-3 px-4 text-sm">
+                    <button class="btn bg-blue-500 hover:bg-blue-600 px-3 py-1 text-xs" data-id="${entry.id}" data-action="edit">แก้ไข</button>
+                    <button class="btn bg-red-500 hover:bg-red-600 px-3 py-1 text-xs" data-id="${entry.id}" data-action="delete">ลบ</button>
+                </td>
+            `;
+            adminTableBody.appendChild(row);
+        });
+
+        adminTableBody.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const docId = e.target.dataset.id;
+                const action = e.target.dataset.action;
+                const entry = data.find(d => d.id === docId);
+
+                if (action === 'edit') {
+                    showEditModal(entry);
+                } else if (action === 'delete') {
+                    handleDelete(docId);
+                }
+            });
+        });
+    };
+
+    // Function to update UI based on selected employee's status
+    const updateCheckInStatus = (allTimesheets) => {
+        const employeeEntries = allTimesheets.filter(entry => entry.employeeName === selectedEmployee);
+        const latestEntry = employeeEntries.sort((a, b) => b.checkInTime.toDate() - a.checkInTime.toDate())[0];
+
+        if (latestEntry && !latestEntry.checkOutTime) {
+            checkBtn.classList.remove('btn-green');
+            checkBtn.classList.add('btn-red');
+            btnText.textContent = 'เช็คเอาท์';
+            statusText.textContent = `เช็คอินเมื่อ: ${latestEntry.checkInTime.toDate().toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' })}`;
+            checkStatusDiv.classList.remove('hidden');
+        } else {
+            checkBtn.classList.remove('btn-red');
+            checkBtn.classList.add('btn-green');
+            btnText.textContent = 'เช็คอิน';
+            statusText.textContent = `ยังไม่ได้เช็คอิน`;
+            checkStatusDiv.classList.remove('hidden');
+        }
+    };
+
+    // Event listener for the check-in/check-out button
+    checkBtn.addEventListener('click', async () => {
+        if (!selectedEmployee) {
+            showError("กรุณายืนยันชื่อพนักงานก่อน");
+            return;
+        }
+
+        checkBtn.disabled = true;
+        btnText.textContent = 'กำลังดำเนินการ...';
+        showError("");
+
+        try {
+            const timesheetsCollection = collection(db, `artifacts/${appId}/public/data/timesheets`);
+            const q = query(timesheetsCollection, where("employeeName", "==", selectedEmployee));
+            const snapshot = await getDocs(q);
+            const employeeEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            // Find the latest entry that has NOT been checked out
+            const latestEntry = employeeEntries.sort((a, b) => b.checkInTime.toDate() - a.checkInTime.toDate())[0];
+
+            if (latestEntry && !latestEntry.checkOutTime) {
+                // Perform Check-out
+                const docRef = doc(db, timesheetsCollection.path, latestEntry.id);
+                await updateDoc(docRef, {
+                    checkOutTime: new Date(),
+                    checkOutLocation: currentLocation || null // Use currentLocation if available
+                });
+                console.log("Check-out successful for", selectedEmployee);
+            } else {
+                // Perform Check-in
+                await addDoc(timesheetsCollection, {
+                    employeeName: selectedEmployee,
+                    checkInTime: new Date(),
+                    checkInLocation: currentLocation || null // Use currentLocation if available
+                });
+                console.log("Check-in successful for", selectedEmployee);
+            }
+        } catch (e) {
+            console.error("Error processing request:", e);
+            showError("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            checkBtn.disabled = false;
+            // The status update logic will handle setting the correct button text after the Firestore listener updates.
+        }
+    });
+
+    // Event listener for confirm name button
+    confirmNameBtn.addEventListener('click', () => {
+        selectedEmployee = employeeSelect.value;
+        loginErrorDiv.classList.add('hidden');
+
+        if (selectedEmployee === 'Admin') {
+            const password = adminPasswordInput.value;
+            if (password === ADMIN_PASSWORD) {
+                loginSection.classList.add('hidden');
+                mainAppSection.classList.add('hidden');
+                adminSection.classList.remove('hidden');
+                downloadBtn.classList.add('hidden');
+                attachTimesheetListener(selectedEmployee);
+            } else {
+                loginErrorDiv.textContent = 'รหัสผ่านไม่ถูกต้อง';
+                loginErrorDiv.classList.remove('hidden');
+            }
+        } else if (selectedEmployee) {
+            loginSection.classList.add('hidden');
+            mainAppSection.classList.remove('hidden');
+            adminSection.classList.add('hidden');
+            attachTimesheetListener(selectedEmployee);
+        }
+    });
+
+    // Event listener to show/hide password field
+    employeeSelect.addEventListener('change', () => {
+        if (employeeSelect.value === 'Admin') {
+            adminPasswordSection.classList.remove('hidden');
+        } else {
+            adminPasswordSection.classList.add('hidden');
+            adminPasswordInput.value = ''; // Clear password field when switching away
+        }
+    });
+
+    // --- Admin Functions ---
+    const showEditModal = (entry) => {
+        editDocIdInput.value = entry.id;
+        const checkInDate = entry.checkInTime.toDate();
+        const checkOutDate = entry.checkOutTime ? entry.checkOutTime.toDate() : null;
+
+        const formatDate = (date) => {
+            const pad = (num) => num.toString().padStart(2, '0');
+            return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+        };
+
+        editCheckinInput.value = formatDate(checkInDate);
+        if (checkOutDate) {
+            editCheckoutInput.value = formatDate(checkOutDate);
+        } else {
+            // Set to current time or leave empty for no checkout
+            editCheckoutInput.value = ''; 
+        }
+
+        editModal.classList.remove('hidden');
+    };
+
+    const handleSaveEdit = async () => {
+        const docId = editDocIdInput.value;
+        const newCheckIn = editCheckinInput.value;
+        const newCheckOut = editCheckoutInput.value;
+
+        if (!newCheckIn) {
+            // Show error in the main error div for simplicity
+            showError("กรุณากรอกเวลาเข้า");
+            return;
+        }
+
+        const updates = {};
+        updates.checkInTime = new Date(newCheckIn);
+        
+        // Handle checkout time: If provided, use it; if empty, set to null (not checked out)
+        if (newCheckOut) {
+            updates.checkOutTime = new Date(newCheckOut);
+        } else {
+            updates.checkOutTime = null;
+        }
+
+        try {
+            const timesheetsCollection = collection(db, `artifacts/${appId}/public/data/timesheets`);
+            const docRef = doc(timesheetsCollection, docId);
+            await updateDoc(docRef, updates);
+            editModal.classList.add('hidden');
+            showError(''); // Clear error on success
+        } catch (e) {
+            console.error("Error updating document:", e);
+            showError("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+        }
+    };
+
+    const handleDelete = async (docId) => {
+        // Use a simple custom confirmation instead of alert/confirm
+        if (window.confirm("คุณต้องการลบรายการนี้ใช่หรือไม่?")) {
+            const timesheetsCollection = collection(db, `artifacts/${appId}/public/data/timesheets`);
+            const docRef = doc(timesheetsCollection, docId);
+            try {
+                await deleteDoc(docRef);
+                showError(''); // Clear error on success
+            } catch (e) {
+                console.error("Error deleting document:", e);
+                showError("เกิดข้อผิดพลาดในการลบข้อมูล");
+            }
+        }
+    };
+
+    // Event listeners for modal
+    saveEditBtn.addEventListener('click', handleSaveEdit);
+    cancelEditBtn.addEventListener('click', () => {
+        editModal.classList.add('hidden');
+        showError(''); // Clear error when closing modal
+    });
+
+    // --- Helper Functions ---
+    const showError = (message) => {
+        if (message) {
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        } else {
+            errorDiv.classList.add('hidden');
+        }
+    };
+    
+    // Polyfill for simple custom confirmation modal (since native confirm is disallowed)
+    window.confirm = (message) => {
+        return window.confirm_polyfilled ? window.confirm_polyfilled(message) : prompt(message + " (พิมพ์ 'y' เพื่อยืนยัน)");
+    };
+
+    // Event listener for download button
+    downloadBtn.addEventListener('click', () => {
+        let csvContent = "";
+        const table = document.getElementById('timesheet-table');
+        // Include both header and body rows
+        const rows = table.querySelectorAll("tr");
+
+        for (const row of rows) {
+            const cells = row.querySelectorAll("th, td");
+            // Wrap content in quotes to handle commas within fields
+            const rowData = Array.from(cells).map(cell => `"${cell.textContent.trim()}"`);
+            csvContent += rowData.join(",") + "\r\n";
+        }
+
+        // Add BOM (Byte Order Mark) for proper Thai character encoding in Excel
+        const bom = "\uFEFF";
+        const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
+        
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", "timesheet-data.csv");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+
+    window.onload = initializeFirebase;
+</script>
+
+</body>
+</html>
