@@ -173,13 +173,25 @@
     // Set Firestore log level for debugging
     setLogLevel('debug');
 
-    // Get Firebase configuration and app ID from global variables
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    // ====================================================================
+    // ⚠️ IMPORTANT: ใส่ Project ID ของคุณที่นี่ หากคุณสร้างโปรเจกต์ใหม่ 
+    // ตัวอย่าง: const MY_PROJECT_ID = 'my-resort-time-clock-2025-xxxx';
+    // ====================================================================
+    const MY_PROJECT_ID = 'ใส่_PROJECT_ID_ของคุณ_ที่นี่'; 
+
+    // การกำหนดค่า Firebase
+    const appId = MY_PROJECT_ID; 
+    const firebaseConfig = {
+        apiKey: "AIzaSy_FAKE_API_KEY", // This is a placeholder and should not be used in real apps, but works for the purpose of this demo
+        authDomain: `${MY_PROJECT_ID}.firebaseapp.com`,
+        projectId: MY_PROJECT_ID,
+        storageBucket: `${MY_PROJECT_ID}.appspot.com`,
+        messagingSenderId: "123456789012",
+        appId: "1:123456789012:web:abcdef01234567890abcdef"
+    };
+    const initialAuthToken = null; // No initial token needed when using custom ID setup
 
     // --- Employee Data (can be customized) ---
-    // Added "Admin" to enable admin mode
     const employees = [
         "Admin", "Kittipoom" , "Rut", " Bao", "Boonnum", "Tine", "YUI", "Kai 2", "Lee", "Noi", "Vut", "Yin", "Kra", "Tai", "Eiei", "Ann", "Dream", "Rain", "Mali", "Zuzu", "R tong"
     ];
@@ -240,8 +252,6 @@
                         resolve({ latitude, longitude });
                     },
                     (error) => {
-                        // The error object from the browser can sometimes be an empty object.
-                        // We ensure we log a meaningful message.
                         const errorMessage = error.message || "ไม่สามารถดึงข้อมูลตำแหน่งที่ตั้งได้ กรุณาตรวจสอบว่าเปิดการใช้งาน Location services และให้สิทธิ์การเข้าถึงแล้ว";
                         console.error("Geolocation error:", errorMessage);
                         reject(new Error(errorMessage));
@@ -254,33 +264,35 @@
 
     // Function to initialize Firebase and authentication
     const initializeFirebase = async () => {
+         if (MY_PROJECT_ID === 'Pernnial SEA CALM') {
+            showError("⚠️ กรุณาแก้ไขโค้ด: ใส่ Project ID ของคุณในตัวแปร MY_PROJECT_ID");
+            return;
+        }
+
         try {
             app = initializeApp(firebaseConfig);
             db = getFirestore(app);
             auth = getAuth(app);
+            
+            // Sign in anonymously since we rely on the public rule for writing
+            await signInAnonymously(auth);
 
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     userId = user.uid;
                     console.log('User authenticated:', userId);
-                    // Try to get location only after auth is ready
                     try {
                         currentLocation = await getCurrentLocation();
                     } catch (e) {
                         showError(e.message);
                     }
                 } else {
-                    console.log('User signed out or not authenticated. Signing in...');
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
+                    console.log('User signed out.');
                 }
             });
         } catch (e) {
             console.error("Error during Firebase initialization:", e);
-            showError("เกิดข้อผิดพลาดในการเชื่อมต่อ Firebase กรุณาลองใหม่อีกครั้ง");
+            showError("เกิดข้อผิดพลาดในการเชื่อมต่อ Firebase (โปรดตรวจสอบ Project ID และกฎความปลอดภัย)");
         }
     };
 
@@ -294,6 +306,7 @@
             return;
         }
 
+        // NOTE: We use the simplified path for the public collection
         const timesheetsCollection = collection(db, `artifacts/${appId}/public/data/timesheets`);
         let q;
         if (employeeName === 'Admin') {
@@ -316,22 +329,20 @@
             }
             
             if (timesheetData.length > 0 && employeeName !== 'Admin') {
-                // Only show download button for the individual user's data
                 downloadBtn.classList.remove('hidden');
             } else {
                 downloadBtn.classList.add('hidden');
             }
         }, (error) => {
             console.error("Error listening to timesheets:", error);
-            showError("เกิดข้อผิดพลาดในการดึงข้อมูลบันทึกเวลา");
+            showError("เกิดข้อผิดพลาดในการดึงข้อมูลบันทึกเวลา (โปรดตรวจสอบ Rules)");
         });
     };
 
+    // --- (Rendering and Admin functions remain the same as previous version) ---
     // Function to render the timesheet table for a single user
     const renderUserTimesheets = (data) => {
-        // Sort data by checkInTime descending (newest first)
         data.sort((a, b) => b.checkInTime.toDate() - a.checkInTime.toDate());
-
         timesheetTableBody.innerHTML = '';
         if (data.length === 0) {
             timesheetTableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">ยังไม่มีการบันทึกเวลา</td></tr>';
@@ -341,23 +352,17 @@
         data.forEach(entry => {
             const row = document.createElement('tr');
             row.className = 'border-b last:border-b-0 hover:bg-gray-50';
-
             const checkInDate = entry.checkInTime.toDate();
             const checkOutDate = entry.checkOutTime ? entry.checkOutTime.toDate() : null;
-
             const checkInFormatted = checkInDate.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
             const checkOutFormatted = checkOutDate ? checkOutDate.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : 'ยังไม่เช็คเอาท์';
-
             let workHours = 'N/A';
             if (checkOutDate) {
                 const diffMs = checkOutDate - checkInDate;
                 const diffHours = diffMs / (1000 * 60 * 60);
                 workHours = `${diffHours.toFixed(2)} ชม.`;
             }
-
-            // Display location data from checkInLocation if available
             const locationText = entry.checkInLocation ? `${entry.checkInLocation.latitude.toFixed(4)}, ${entry.checkInLocation.longitude.toFixed(4)}` : 'ไม่มีข้อมูลตำแหน่ง';
-
             row.innerHTML = `
                 <td class="py-3 px-4 text-sm">${checkInFormatted}</td>
                 <td class="py-3 px-4 text-sm">${checkOutFormatted}</td>
@@ -370,9 +375,7 @@
 
     // Function to render the timesheet table for admin
     const renderAdminTimesheets = (data) => {
-        // Sort data by checkInTime descending (newest first)
         data.sort((a, b) => b.checkInTime.toDate() - a.checkInTime.toDate());
-
         adminTableBody.innerHTML = '';
         if (data.length === 0) {
             adminTableBody.innerHTML = '<tr><td colspan="4" class="text-center py-4 text-gray-500">ยังไม่มีการบันทึกเวลา</td></tr>';
@@ -382,13 +385,10 @@
         data.forEach(entry => {
             const row = document.createElement('tr');
             row.className = 'border-b last:border-b-0 hover:bg-gray-50';
-
             const checkInDate = entry.checkInTime.toDate();
             const checkOutDate = entry.checkOutTime ? entry.checkOutTime.toDate() : null;
-
             const checkInFormatted = checkInDate.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' });
             const checkOutFormatted = checkOutDate ? checkOutDate.toLocaleString('th-TH', { dateStyle: 'short', timeStyle: 'short' }) : 'ยังไม่เช็คเอาท์';
-
             row.innerHTML = `
                 <td class="py-3 px-4 text-sm">${entry.employeeName}</td>
                 <td class="py-3 px-4 text-sm">${checkInFormatted}</td>
@@ -406,7 +406,6 @@
                 const docId = e.target.dataset.id;
                 const action = e.target.dataset.action;
                 const entry = data.find(d => d.id === docId);
-
                 if (action === 'edit') {
                     showEditModal(entry);
                 } else if (action === 'delete') {
@@ -420,7 +419,6 @@
     const updateCheckInStatus = (allTimesheets) => {
         const employeeEntries = allTimesheets.filter(entry => entry.employeeName === selectedEmployee);
         const latestEntry = employeeEntries.sort((a, b) => b.checkInTime.toDate() - a.checkInTime.toDate())[0];
-
         if (latestEntry && !latestEntry.checkOutTime) {
             checkBtn.classList.remove('btn-green');
             checkBtn.classList.add('btn-red');
@@ -442,7 +440,6 @@
             showError("กรุณายืนยันชื่อพนักงานก่อน");
             return;
         }
-
         checkBtn.disabled = true;
         btnText.textContent = 'กำลังดำเนินการ...';
         showError("");
@@ -452,33 +449,28 @@
             const q = query(timesheetsCollection, where("employeeName", "==", selectedEmployee));
             const snapshot = await getDocs(q);
             const employeeEntries = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-
-            // Find the latest entry that has NOT been checked out
             const latestEntry = employeeEntries.sort((a, b) => b.checkInTime.toDate() - a.checkInTime.toDate())[0];
 
             if (latestEntry && !latestEntry.checkOutTime) {
-                // Perform Check-out
                 const docRef = doc(db, timesheetsCollection.path, latestEntry.id);
                 await updateDoc(docRef, {
                     checkOutTime: new Date(),
-                    checkOutLocation: currentLocation || null // Use currentLocation if available
+                    checkOutLocation: currentLocation || null
                 });
                 console.log("Check-out successful for", selectedEmployee);
             } else {
-                // Perform Check-in
                 await addDoc(timesheetsCollection, {
                     employeeName: selectedEmployee,
                     checkInTime: new Date(),
-                    checkInLocation: currentLocation || null // Use currentLocation if available
+                    checkInLocation: currentLocation || null
                 });
                 console.log("Check-in successful for", selectedEmployee);
             }
         } catch (e) {
             console.error("Error processing request:", e);
-            showError("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
+            showError("เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาตรวจสอบ Project ID และ Rules");
         } finally {
             checkBtn.disabled = false;
-            // The status update logic will handle setting the correct button text after the Firestore listener updates.
         }
     });
 
@@ -513,7 +505,7 @@
             adminPasswordSection.classList.remove('hidden');
         } else {
             adminPasswordSection.classList.add('hidden');
-            adminPasswordInput.value = ''; // Clear password field when switching away
+            adminPasswordInput.value = '';
         }
     });
 
@@ -522,20 +514,16 @@
         editDocIdInput.value = entry.id;
         const checkInDate = entry.checkInTime.toDate();
         const checkOutDate = entry.checkOutTime ? entry.checkOutTime.toDate() : null;
-
         const formatDate = (date) => {
             const pad = (num) => num.toString().padStart(2, '0');
             return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
         };
-
         editCheckinInput.value = formatDate(checkInDate);
         if (checkOutDate) {
             editCheckoutInput.value = formatDate(checkOutDate);
         } else {
-            // Set to current time or leave empty for no checkout
             editCheckoutInput.value = ''; 
         }
-
         editModal.classList.remove('hidden');
     };
 
@@ -543,29 +531,20 @@
         const docId = editDocIdInput.value;
         const newCheckIn = editCheckinInput.value;
         const newCheckOut = editCheckoutInput.value;
-
         if (!newCheckIn) {
-            // Show error in the main error div for simplicity
             showError("กรุณากรอกเวลาเข้า");
             return;
         }
-
         const updates = {};
         updates.checkInTime = new Date(newCheckIn);
-        
-        // Handle checkout time: If provided, use it; if empty, set to null (not checked out)
-        if (newCheckOut) {
-            updates.checkOutTime = new Date(newCheckOut);
-        } else {
-            updates.checkOutTime = null;
-        }
+        updates.checkOutTime = newCheckOut ? new Date(newCheckOut) : null;
 
         try {
             const timesheetsCollection = collection(db, `artifacts/${appId}/public/data/timesheets`);
             const docRef = doc(timesheetsCollection, docId);
             await updateDoc(docRef, updates);
             editModal.classList.add('hidden');
-            showError(''); // Clear error on success
+            showError('');
         } catch (e) {
             console.error("Error updating document:", e);
             showError("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
@@ -573,13 +552,12 @@
     };
 
     const handleDelete = async (docId) => {
-        // Use a simple custom confirmation instead of alert/confirm
         if (window.confirm("คุณต้องการลบรายการนี้ใช่หรือไม่?")) {
             const timesheetsCollection = collection(db, `artifacts/${appId}/public/data/timesheets`);
             const docRef = doc(timesheetsCollection, docId);
             try {
                 await deleteDoc(docRef);
-                showError(''); // Clear error on success
+                showError('');
             } catch (e) {
                 console.error("Error deleting document:", e);
                 showError("เกิดข้อผิดพลาดในการลบข้อมูล");
@@ -591,7 +569,7 @@
     saveEditBtn.addEventListener('click', handleSaveEdit);
     cancelEditBtn.addEventListener('click', () => {
         editModal.classList.add('hidden');
-        showError(''); // Clear error when closing modal
+        showError('');
     });
 
     // --- Helper Functions ---
@@ -604,7 +582,6 @@
         }
     };
     
-    // Polyfill for simple custom confirmation modal (since native confirm is disallowed)
     window.confirm = (message) => {
         return window.confirm_polyfilled ? window.confirm_polyfilled(message) : prompt(message + " (พิมพ์ 'y' เพื่อยืนยัน)");
     };
@@ -613,20 +590,14 @@
     downloadBtn.addEventListener('click', () => {
         let csvContent = "";
         const table = document.getElementById('timesheet-table');
-        // Include both header and body rows
         const rows = table.querySelectorAll("tr");
-
         for (const row of rows) {
             const cells = row.querySelectorAll("th, td");
-            // Wrap content in quotes to handle commas within fields
             const rowData = Array.from(cells).map(cell => `"${cell.textContent.trim()}"`);
             csvContent += rowData.join(",") + "\r\n";
         }
-
-        // Add BOM (Byte Order Mark) for proper Thai character encoding in Excel
         const bom = "\uFEFF";
         const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-        
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
